@@ -6,7 +6,64 @@
     <title>Face Recognition System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .navbar-brand {
+            font-weight: 600;
+        }
+        
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border: 1px solid rgba(0, 0, 0, 0.125);
+            margin-bottom: 1rem;
+        }
+        
+        .card-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+            font-weight: 600;
+        }
+        
+        .activity-item {
+            border-left: 4px solid #007bff;
+            padding-left: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .activity-item.masuk {
+            border-left-color: #28a745;
+        }
+        
+        .activity-item.keluar {
+            border-left-color: #dc3545;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -131,6 +188,105 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        // Inline JavaScript untuk menghindari file external
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load dashboard data
+            loadDashboardData();
+            loadRecentActivity();
+            
+            // Auto refresh every 10 seconds
+            setInterval(loadDashboardData, 10000);
+            setInterval(loadRecentActivity, 10000);
+        });
+
+        function loadDashboardData() {
+            fetch('/api/dashboard_data')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error('Error:', data.error);
+                        return;
+                    }
+                    
+                    // Update statistics cards
+                    if (data.statistics) {
+                        document.getElementById('total-masuk').textContent = data.statistics.total_masuk || 0;
+                        document.getElementById('total-keluar').textContent = data.statistics.total_keluar || 0;
+                        document.getElementById('wajah-didalam').textContent = data.statistics.wajah_didalam || 0;
+                        document.getElementById('unique-faces').textContent = data.statistics.unique_faces || 0;
+                    }
+                    
+                    // Update today stats
+                    if (data.today_stats) {
+                        const todayStatsHtml = `
+                            <div class="stat-item">
+                                <span>Aktivitas Hari Ini:</span>
+                                <span class="stat-value text-primary">${data.today_stats.total_today || 0}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span>Masuk:</span>
+                                <span class="stat-value text-success">${data.today_stats.masuk_today || 0}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span>Keluar:</span>
+                                <span class="stat-value text-danger">${data.today_stats.keluar_today || 0}</span>
+                            </div>
+                        `;
+                        document.getElementById('today-stats').innerHTML = todayStatsHtml;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading dashboard data:', error);
+                    document.getElementById('today-stats').innerHTML = '<p class="text-danger">Error loading data</p>';
+                });
+        }
+
+        function loadRecentActivity() {
+            fetch('/api/recent_activity')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error('Error:', data.error);
+                        return;
+                    }
+                    
+                    let activityHtml = '';
+                    
+                    if (data.length === 0) {
+                        activityHtml = '<p class="text-muted">Tidak ada aktivitas terbaru</p>';
+                    } else {
+                        data.forEach(activity => {
+                            const statusClass = activity.status_masuk_keluar === 'masuk' ? 'masuk' : 'keluar';
+                            const statusIcon = activity.status_masuk_keluar === 'masuk' ? 'fa-sign-in-alt text-success' : 'fa-sign-out-alt text-danger';
+                            const statusText = activity.status_masuk_keluar === 'masuk' ? 'Masuk' : 'Keluar';
+                            
+                            activityHtml += `
+                                <div class="activity-item ${statusClass}">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <strong>${activity.nim_nama || 'Tidak Dikenali'}</strong>
+                                            <br>
+                                            <small class="text-muted">${activity.waktu || ''}</small>
+                                        </div>
+                                        <div class="text-end">
+                                            <i class="fas ${statusIcon}"></i>
+                                            <br>
+                                            <small class="text-muted">${statusText}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    document.getElementById('recent-activity').innerHTML = activityHtml;
+                })
+                .catch(error => {
+                    console.error('Error loading recent activity:', error);
+                    document.getElementById('recent-activity').innerHTML = '<p class="text-danger">Error loading activity</p>';
+                });
+        }
+    </script>
 </body>
 </html>
