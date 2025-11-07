@@ -10,9 +10,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from config import DB_CONFIG
 
-app = Flask(__name__, 
-            template_folder=os.path.dirname(os.path.abspath(__file__)),
-            static_folder=os.path.dirname(os.path.abspath(__file__)))
+app = Flask(__name__)
 
 def get_db_connection():
     """Membuat koneksi ke database MySQL"""
@@ -23,15 +21,30 @@ def get_db_connection():
         print(f"[DATABASE ERROR] Gagal terkoneksi ke database: {e}")
         return None
 
+def render_html(filename, **kwargs):
+    """Render HTML file directly from root directory"""
+    try:
+        with open(filename, 'r', encoding='utf-8') as file:
+            html_content = file.read()
+        from flask import render_template_string
+        return render_template_string(html_content, **kwargs)
+    except FileNotFoundError:
+        return f"File {filename} tidak ditemukan", 404
+    except Exception as e:
+        return f"Error rendering template: {str(e)}", 500
+
 # Route untuk file static (CSS, JS, images)
-@app.route('/static/<path:filename>')
+@app.route('/<path:filename>')
 def serve_static(filename):
-    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), filename)
+    """Serve static files directly"""
+    if os.path.isfile(filename):
+        return send_from_directory('.', filename)
+    return "File not found", 404
 
 @app.route('/')
 def index():
     """Halaman dashboard utama"""
-    return render_template('index.html')
+    return render_html('index.html')
 
 @app.route('/logs')
 def logs():
@@ -42,7 +55,7 @@ def logs():
     
     conn = get_db_connection()
     if conn is None:
-        return render_template('error.html', message="Koneksi database gagal"), 500
+        return render_html('error.html', message="Koneksi database gagal"), 500
     
     try:
         cursor = conn.cursor(dictionary=True)
@@ -72,22 +85,22 @@ def logs():
         cursor.close()
         conn.close()
         
-        return render_template('logs.html', 
-                             logs=logs_data, 
-                             page=page, 
-                             total_pages=total_pages,
-                             total=total)
+        return render_html('logs.html', 
+                         logs=logs_data, 
+                         page=page, 
+                         total_pages=total_pages,
+                         total=total)
     
     except mysql.connector.Error as e:
         print(f"[DATABASE ERROR] {e}")
-        return render_template('error.html', message="Terjadi kesalahan database"), 500
+        return render_html('error.html', message="Terjadi kesalahan database"), 500
 
 @app.route('/statistics')
 def statistics():
     """Halaman statistik lengkap"""
     conn = get_db_connection()
     if conn is None:
-        return render_template('error.html', message="Koneksi database gagal"), 500
+        return render_html('error.html', message="Koneksi database gagal"), 500
     
     try:
         cursor = conn.cursor(dictionary=True)
@@ -153,17 +166,17 @@ def statistics():
         cursor.close()
         conn.close()
         
-        return render_template('statistics.html',
-                             stats=stats,
-                             today_stats=today_stats,
-                             unique_today=unique_today,
-                             top_persons=top_persons,
-                             hours=hours,
-                             hour_counts=hour_counts)
+        return render_html('statistics.html',
+                         stats=stats,
+                         today_stats=today_stats,
+                         unique_today=unique_today,
+                         top_persons=top_persons,
+                         hours=hours,
+                         hour_counts=hour_counts)
     
     except mysql.connector.Error as e:
         print(f"[DATABASE ERROR] {e}")
-        return render_template('error.html', message="Terjadi kesalahan database"), 500
+        return render_html('error.html', message="Terjadi kesalahan database"), 500
 
 # ========== API ROUTES FOR AJAX ==========
 
@@ -249,13 +262,20 @@ def api_recent_activity():
 # Error handlers
 @app.errorhandler(404)
 def not_found_error(error):
-    return render_template('error.html', message="Halaman tidak ditemukan"), 404
+    return render_html('error.html', message="Halaman tidak ditemukan"), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    return render_template('error.html', message="Terjadi kesalahan internal server"), 500
+    return render_html('error.html', message="Terjadi kesalahan internal server"), 500
 
 if __name__ == '__main__':
     print("[FLASK] Starting Face Recognition Website...")
     print("[FLASK] Website available at: http://localhost:5000")
+    
+    # Check if required files exist
+    required_files = ['index.html', 'logs.html', 'statistics.html', 'error.html']
+    for file in required_files:
+        if not os.path.exists(file):
+            print(f"[WARNING] File {file} tidak ditemukan!")
+    
     app.run(debug=True, host='0.0.0.0', port=5000)
