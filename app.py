@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 import mysql.connector
 from datetime import datetime, timedelta
 import json
@@ -10,7 +10,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from config import DB_CONFIG
 
-app = Flask(__name__)
+app = Flask(__name__, 
+            template_folder=os.path.dirname(os.path.abspath(__file__)),
+            static_folder=os.path.dirname(os.path.abspath(__file__)))
 
 def get_db_connection():
     """Membuat koneksi ke database MySQL"""
@@ -20,6 +22,11 @@ def get_db_connection():
     except mysql.connector.Error as e:
         print(f"[DATABASE ERROR] Gagal terkoneksi ke database: {e}")
         return None
+
+# Route untuk file static (CSS, JS, images)
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), filename)
 
 @app.route('/')
 def index():
